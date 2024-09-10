@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dino Run</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background-color: skyblue;
+        }
+        #game-canvas {
+            border: 1px solid black;
+            width: 100%; /* عرض را به ۱۰۰% تنظیم کنید */
+            height: 90%; /* ارتفاع را به ۹۰% تنظیم کنید */
+            display: block;
+        }
+        #ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background-color: #8B4513;
+        }
+        #restart-button {
+            position: absolute;
+            top: 50%; /* قرار دادن دکمه در وسط عمودی */
+            left: 50%; /* قرار دادن دکمه در وسط افقی */
+            transform: translate(-50%, -50%); /* جابجایی دکمه به مرکز */
+            font-size: 36px; 
+            padding: 20px 40px; 
+            border: none;
+            border-radius: 10px;
+            background-color: #4CAF50;
+            color: #fff;
+            cursor: pointer;
+            display: none; 
+        }
+        #restart-button:hover {
+            background-color: #3e8e41;
+        }
+        #score, #high-score {
+            position: absolute;
+            left: 20px;
+            font-size: 36px;
+            color: black;
+        }
+        #score {
+            top: 20px; /* تنظیم موقعیت امتیاز */
+        }
+        #high-score {
+            top: 60px; /* تنظیم موقعیت بالاترین امتیاز */
+        }
+    </style>
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+    <div id="ground"></div>
+    <button id="restart-button">Restart!</button>
+    <div id="score">Score: 0</div>
+    <div id="high-score">High Score: 0</div>
+    <audio id="background-music" src="path/to/your/music.mp3" loop></audio> <!-- اضافه کردن موسیقی -->
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const restartButton = document.getElementById('restart-button');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('high-score');
+        const backgroundMusic = document.getElementById('background-music'); // انتخاب عنصر موسیقی
+
+        canvas.width = window.innerWidth; // عرض را به ۱۰۰% تنظیم کنید
+        canvas.height = window.innerHeight * 0.9; // ارتفاع را به ۹۰% تنظیم کنید
+
+        const groundHeight = 20;
+        let dinoX = 100; // موقعیت ثابت دینو
+        let dinoY = canvas.height - groundHeight - 37; // تغییر ارتفاع دینو
+        let gravity = 3;
+        let jumpForce = 100; 
+        let isJumping = false;
+        let obstacles = [];
+        let score = 0;
+        let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0; 
+        let isAlive = true; 
+        let obstacleSpeed = 5; 
+
+        const dinoImage = new Image();
+        dinoImage.src = 'https://s8.uupload.ir/files/clipped_image_20240907_123258_s68m.png';
+
+        const obstacleImages = [
+            'https://s8.uupload.ir/files/20240907_093249_48ki.png',
+            'https://s8.uupload.ir/files/1000091703_prev_ui_gup7.png',
+            'https://s8.uupload.ir/files/20240907_093314_7ulx.png'
+        ];
+
+        const loadedObstacleImages = [];
+        let imagesLoaded = 0;
+
+        obstacleImages.forEach(src => {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                imagesLoaded++;
+                if (imagesLoaded === obstacleImages.length) {
+                    createObstacles(); 
+                    update(); 
+                    backgroundMusic.play(); // پخش موسیقی هنگام شروع بازی
+                }
+            };
+            loadedObstacleImages.push(img);
+        });
+
+        function createObstacles() {
+            const randomX = canvas.width + Math.random() * 200; 
+            obstacles.push({ 
+                x: randomX, 
+                y: canvas.height - groundHeight - 20, 
+                img: loadedObstacleImages[Math.floor(Math.random() * loadedObstacleImages.length)]
+            });
+        }
+
+        function drawObstacle(obstacle) {
+            ctx.drawImage(obstacle.img, obstacle.x, obstacle.y, 20, 20); 
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#8B4513'; // رنگ قهوه‌ای
+            ctx.fillRect(0, canvas.height - groundHeight, canvas.width, groundHeight); // رسم مستطیل زمین
+        }
+
+        function checkCollision() {
+            for (let obstacle of obstacles) {
+                if (dinoX + 20 > obstacle.x && dinoX < obstacle.x + 20 && dinoY + 37 > obstacle.y) {
+                    isAlive = false; 
+                    alert("بازی تمام شد! امتیاز شما: " + score);
+                    if (score > highScore) {
+                        highScore = score; 
+                        localStorage.setItem('highScore', highScore); 
+                    }
+                    highScoreDisplay.innerText = `بالاترین امتیاز: ${highScore}`; 
+                    restartButton.style.display = 'block'; 
+                    backgroundMusic.pause(); // توقف موسیقی هنگام پایان بازی
+                    break;
+                }
+            }
+        }
+
+        function update() {
+            if (!isAlive) return; 
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawGround(); // رسم زمین
+            ctx.drawImage(dinoImage, dinoX - 15, dinoY, 30, 37); 
+
+            for (let i = 0; i < obstacles.length; i++) {
+                drawObstacle(obstacles[i]);
+                obstacles[i].x -= obstacleSpeed; 
+
+                if (obstacles[i].x < -20) {
+                    obstacles.splice(i, 1);
+                    score += 1; 
+                    createObstacles(); 
+                    increaseSpeed(); 
+                    break;
+                }
+            }
+
+            scoreDisplay.innerText = `امتیاز: ${score}`; 
+            highScoreDisplay.innerText = `بالاترین امتیاز: ${highScore}`; 
+
+            if (isJumping) {
+                dinoY -= jumpForce;
+                if (dinoY <= canvas.height - groundHeight - 120) { 
+                    dinoY = canvas.height - groundHeight - 120;
+                    isJumping = false;
+                }
+            } else {
+                dinoY += gravity;
+                if (dinoY >= canvas.height - groundHeight - 37) {
+                    dinoY = canvas.height - groundHeight - 37;
+                }
+            }
+
+            checkCollision();
+            requestAnimationFrame(update);
+        }
+
+        function increaseSpeed() {
+            if (score % 5 === 0) { 
+                obstacleSpeed += 0.5; 
+            }
+        }
+
+        function jump() {
+            if (!isJumping && dinoY >= canvas.height - groundHeight - 37) {
+                isJumping = true;
+                dinoY -= jumpForce; 
+            }
+        }
+
+        canvas.addEventListener('touchstart', function(event) {
+            jump();
+            event.preventDefault(); 
+        });
+
+        restartButton.addEventListener('click', function() {
+            location.reload(); 
+        });
+
+        highScoreDisplay.innerText = `بالاترین امتیاز: ${highScore}`;
+    </script>
+</body>
+</html>
